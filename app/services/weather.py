@@ -3,6 +3,9 @@ from fastapi import HTTPException
 from app.core.config import settings
 
 async def get_weather_by_city(city: str) -> dict:
+    if not city or len(city) < 2:
+        raise HTTPException(status_code=400, detail="City parameter cannot be empty or less than 2 characters.")
+    
     url = f"{settings.openweather_base_url}/weather"
     params = {
         "q": city,

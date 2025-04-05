@@ -22,19 +22,19 @@ async def get_song_by_mood(mood: str, limit: int = 1) -> dict:
             response.raise_for_status()
             data = response.json()
 
-            # Final fix for invalid mood case
             if "error" in data:
-                raise HTTPException(status_code=404, detail="No songs found for this mood.")
+                error_message = data.get("message", "Invalid mood specified")
+                raise HTTPException(status_code=400, detail=f"Invalid mood: {error_message}")
 
             tracks = data.get("tracks", {}).get("track", [])
             if not tracks:
-                raise HTTPException(status_code=404, detail="No songs found for this mood.")
+                raise HTTPException(status_code=404, detail=f"No songs found for mood '{mood}'.")
 
             return data
 
     except httpx.HTTPStatusError:
         raise HTTPException(status_code=503, detail="Music service error.")
-    except Exception:
+    except Exception as e:
         raise HTTPException(status_code=500, detail="Unexpected error while processing request.")
 
 async def get_available_moods(limit: int = 25) -> list[str]:
