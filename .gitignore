@@ -15,3 +15,7 @@ venv/
 
 # PyCharm settings
 .idea/
+
+# Log
+app.log
+
