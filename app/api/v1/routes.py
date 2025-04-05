@@ -1,14 +1,20 @@
 import logging
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.services.weather import get_weather_by_city
 from app.services.music import get_song_by_mood, get_available_moods
 from app.logic.matcher import mood_matches_weather
 
 logger = logging.getLogger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter()
 
 @router.get("/health")
+@limiter.limit("15/minute")
 async def health_check(request: Request):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
@@ -16,6 +22,7 @@ async def health_check(request: Request):
     return {"status": "ok"}
 
 @router.get("/weather")
+@limiter.limit("15/minute")
 async def weather(request: Request, city: str = Query(..., min_length=2, max_length=50)):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
@@ -34,6 +41,7 @@ async def weather(request: Request, city: str = Query(..., min_length=2, max_len
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to fetch weather data.")
 
 @router.get("/music")
+@limiter.limit("15/minute")
 async def music(request: Request, mood: str = Query(..., min_length=2, max_length=20), limit: int = Query(1, ge=1, le=10)):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
@@ -59,6 +67,7 @@ async def music(request: Request, mood: str = Query(..., min_length=2, max_lengt
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to fetch song data.")
 
 @router.get("/match")
+@limiter.limit("15/minute")
 async def match(request: Request, mood: str = Query(..., min_length=2, max_length=20), city: str = Query(..., min_length=2, max_length=50)):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
@@ -96,8 +105,8 @@ async def match(request: Request, mood: str = Query(..., min_length=2, max_lengt
         logger.error(f"Error matching mood {mood} with weather for city {city} from IP: {client_ip} with User-Agent: {user_agent}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to match mood and weather.")
 
-
 @router.get("/moods")
+@limiter.limit("15/minute")
 async def moods(request: Request):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
