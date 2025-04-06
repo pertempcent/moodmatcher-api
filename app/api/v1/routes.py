@@ -8,9 +8,7 @@ from app.services.music import get_song_by_mood, get_available_moods
 from app.logic.matcher import mood_matches_weather
 
 logger = logging.getLogger(__name__)
-
 limiter = Limiter(key_func=get_remote_address)
-
 router = APIRouter()
 
 @router.get("/health")
@@ -27,7 +25,6 @@ async def weather(request: Request, city: str = Query(..., min_length=2, max_len
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
     logger.info(f"Fetching weather data for city: {city} from IP: {client_ip} with User-Agent: {user_agent}")
-    
     try:
         data = await get_weather_by_city(city)
         logger.info(f"Weather data for city {city} retrieved successfully. Client IP: {client_ip}, User-Agent: {user_agent}")
@@ -36,8 +33,11 @@ async def weather(request: Request, city: str = Query(..., min_length=2, max_len
             "condition": data["weather"][0]["main"],
             "temperature": data["main"]["temp"]
         }
+    except HTTPException as he:
+        logger.error(f"HTTPException fetching weather data for city {city}: {he.detail}")
+        raise he
     except Exception as e:
-        logger.error(f"Error fetching weather data for city {city} from IP: {client_ip} with User-Agent: {user_agent}: {str(e)}")
+        logger.error(f"Error fetching weather data for city {city}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to fetch weather data.")
 
 @router.get("/music")
@@ -46,7 +46,6 @@ async def music(request: Request, mood: str = Query(..., min_length=2, max_lengt
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
     logger.info(f"Fetching songs for mood: {mood} with limit {limit} from IP: {client_ip} with User-Agent: {user_agent}")
-    
     try:
         data = await get_song_by_mood(mood, limit)
         tracks = data["tracks"]["track"]
@@ -62,8 +61,11 @@ async def music(request: Request, mood: str = Query(..., min_length=2, max_lengt
             }
             for track in tracks
         ]
+    except HTTPException as he:
+        logger.error(f"HTTPException fetching songs for mood {mood}: {he.detail}")
+        raise he
     except Exception as e:
-        logger.error(f"Error fetching songs for mood {mood} from IP: {client_ip} with User-Agent: {user_agent}: {str(e)}")
+        logger.error(f"Error fetching songs for mood {mood}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to fetch song data.")
 
 @router.get("/match")
@@ -72,16 +74,13 @@ async def match(request: Request, mood: str = Query(..., min_length=2, max_lengt
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
     logger.info(f"Received match request for mood: {mood} and city: {city} from IP: {client_ip} with User-Agent: {user_agent}")
-    
     if not mood.strip():
         logger.error(f"Invalid mood parameter: {mood}. Client IP: {client_ip}, User-Agent: {user_agent}")
         raise HTTPException(status_code=400, detail="Mood parameter cannot be empty.")
-
     try:
         weather_data = await get_weather_by_city(city)
         condition = weather_data["weather"][0]["main"]
         logger.info(f"Weather condition for city {city}: {condition}. Client IP: {client_ip}, User-Agent: {user_agent}")
-
         if mood_matches_weather(mood, condition):
             song_data = await get_song_by_mood(mood, 1)
             track = song_data["tracks"]["track"][0]
@@ -101,8 +100,11 @@ async def match(request: Request, mood: str = Query(..., min_length=2, max_lengt
                 "weather": condition,
                 "message": "Mood and weather don't align."
             }
+    except HTTPException as he:
+        logger.error(f"HTTPException in match for mood {mood} and city {city}: {he.detail}")
+        raise he
     except Exception as e:
-        logger.error(f"Error matching mood {mood} with weather for city {city} from IP: {client_ip} with User-Agent: {user_agent}: {str(e)}")
+        logger.error(f"Error matching mood {mood} with weather for city {city}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to match mood and weather.")
 
 @router.get("/moods")
@@ -111,11 +113,13 @@ async def moods(request: Request):
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
     logger.info(f"Fetching available moods from IP: {client_ip} with User-Agent: {user_agent}")
-    
     try:
         tags = await get_available_moods()
         logger.info(f"Fetched {len(tags)} supported moods. Client IP: {client_ip}, User-Agent: {user_agent}")
         return {"supported_moods": tags}
+    except HTTPException as he:
+        logger.error(f"HTTPException fetching moods: {he.detail}")
+        raise he
     except Exception as e:
-        logger.error(f"Error fetching moods from IP: {client_ip} with User-Agent: {user_agent}: {str(e)}")
+        logger.error(f"Error fetching moods: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error: Unable to load supported moods.")
