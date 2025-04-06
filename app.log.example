@@ -1,0 +1,3 @@
+<timestamp> - <log level> - <event message> - IP: <client_ip> - User-Agent: <browser user agent>
+YYYY-MM-DD HH:MM:SS,mmm - INFO - Fetching weather data for city: <city_name> - IP: <client_ip> - User-Agent: <user_agent>
+YYYY-MM-DD HH:MM:SS,mmm - ERROR - HTTPException while fetching city: <city_name> - Reason: <error_reason>
